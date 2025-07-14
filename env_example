@@ -1,0 +1,9 @@
+# Ansible Automation Platform Configuration
+AAP_URL=https://your-aap-controller.example.com
+AAP_TOKEN=your-access-token-here
+AAP_PROJECT_ID=your-project-id-number
+AAP_VERIFY_SSL=true
+
+# Optional settings
+AAP_TIMEOUT=30
+AAP_MAX_RETRIES=3 
