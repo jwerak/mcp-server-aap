@@ -2,6 +2,8 @@
 
 A Very basic and simple Model Context Protocol (MCP) server that provides integration with Ansible Automation Platform (AAP) via API. This server allows Large Language Models to interact with AAP to extract available templates and launch Ansible job templates with custom parameters. This is just a demo, and not a full MCP Server capabiliy, feel free to use this code as you want.
 
+**Note**: This server uses **fastMCP** with HTTP/SSE transport instead of the traditional stdio approach, making it more scalable and easier to debug.
+
 ![Demo of MCP Ansible Automation Platform Server](./docs/images/aap-mcp.gif)
 
 
@@ -12,6 +14,8 @@ A Very basic and simple Model Context Protocol (MCP) server that provides integr
 - **Job Monitoring**: Check job status and retrieve job outputs/logs
 - **Connection Testing**: Verify AAP connectivity and authentication
 - **Error Handling**: Robust error handling with retry logic and detailed error messages
+- **HTTP/SSE Transport**: Uses Server-Sent Events for efficient, scalable communication
+- **FastMCP Framework**: Built on the modern fastMCP framework for simplified development
 
 ## Prerequisites
 
@@ -28,6 +32,11 @@ A Very basic and simple Model Context Protocol (MCP) server that provides integr
 1. Clone this repository
 
 2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+   Or using uv:
    ```bash
    uv pip install -r requirements.txt
    ```
@@ -69,68 +78,148 @@ AAP_MAX_RETRIES=3
 
 Before integrating with Claude Desktop, test your server setup:
 
-```bash
-uv run python tools/test_mcp_server.py
-```
+1. **Test AAP Connection and MCP Server:**
+   ```bash
+   python tools/test_mcp_server.py
+   ```
 
-This will validate:
-- Environment configuration
-- AAP connection
-- Template extraction
-- MCP server functionality
+   This will validate:
+   - Environment configuration
+   - AAP connection
+   - Template extraction
+   - MCP server functionality
+
+2. **Test HTTP Server (after starting server):**
+   ```bash
+   # In one terminal, start the server:
+   python server.py
+
+   # In another terminal, test the HTTP endpoints:
+   python tools/test_http_server.py
+   ```
+
+   This will validate:
+   - Server is running and accessible
+   - SSE endpoint is working
 
 ### Running the Server
 
 Start the MCP server:
 
 ```bash
+python server.py
+```
+
+Or using uv:
+
+```bash
 uv run python server.py
 ```
 
-The server will start and listen for MCP protocol messages on stdin/stdout.
+The server will start and listen for MCP protocol messages on HTTP using Server-Sent Events (SSE) at `http://127.0.0.1:8000`.
+
+### Running with Containers (Podman/Docker)
+
+You can run the MCP server in a container using Podman or Docker.
+
+#### Quick Start (Recommended)
+
+Use the convenience script to build and run the container:
+
+```bash
+# Build and start the container
+./run-container.sh start
+
+# View logs
+./run-container.sh logs
+
+# Check status
+./run-container.sh status
+
+# Stop the container
+./run-container.sh stop
+```
+
+**Note:** Make sure your `.env` file is configured before running the container.
+
+#### Manual Container Commands
+
+##### Build the Container Image
+
+```bash
+# Using Podman
+podman build -t mcp-server-aap:latest .
+```
+
+##### Run the Container
+
+**Option 1: Using environment variables directly**
+
+```bash
+podman run -d \
+  --name mcp-server-aap \
+  -p 8000:8000 \
+  -e AAP_URL="https://your-aap-instance.com" \
+  -e AAP_TOKEN="your-access-token-here" \
+  -e AAP_PROJECT_ID="your-project-id" \
+  -e AAP_VERIFY_SSL="True" \
+  mcp-server-aap:latest
+```
+
+**Option 2: Using .env file**
+
+```bash
+podman run -d \
+  --name mcp-server-aap \
+  -p 8000:8000 \
+  --env-file .env \
+  mcp-server-aap:latest
+```
+
+#### Access the Server
+
+Once the container is running, the server will be accessible at:
+- `http://localhost:8000` (from host machine)
+- `http://127.0.0.1:8000/sse` (SSE endpoint for Claude Desktop)
 
 ### Claude Desktop Integration
 
-#### Step 1: Configure Claude Desktop
+#### Step 1: Start the Server
+
+First, ensure your `.env` file is configured with your AAP credentials, then start the server:
+
+```bash
+python server.py
+```
+
+The server will start on `http://127.0.0.1:8000`.
+
+#### Step 2: Configure Claude Desktop
 
 1. Locate your Claude Desktop configuration file:
    - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
    - **Linux**: `~/.config/claude/claude_desktop_config.json`
 
-2. Edit the configuration file and add the MCP server:
+2. Edit the configuration file and add the MCP server using HTTP transport:
 
 ```json
 {
   "mcpServers": {
     "ansible-aap": {
-      "command": "uv",
-      "args": ["run", "python", "server.py"],
-      "cwd": "<PATH TO THE PROJECT>",
-      "env": {
-        "AAP_URL": "https://your-aap-instance.com",
-        "AAP_TOKEN": "your-access-token-here",
-        "AAP_PROJECT_ID": "your-project-id",
-        "AAP_VERIFY_SSL": "True",
-        "AAP_TIMEOUT": "30",
-        "AAP_MAX_RETRIES": "3"
-      }
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }
 ```
 
-**Important**: Replace the placeholder values with your actual AAP configuration:
-- `cwd`: Use the absolute path to your MCP server directory
-- `AAP_URL`: Your AAP instance URL
-- `AAP_TOKEN`: Your API access token
-- `AAP_PROJECT_ID`: Your project ID
+**Note**: The server must be running before Claude Desktop can connect to it.
 
-#### Step 2: Restart Claude Desktop
+#### Step 3: Restart Claude Desktop
 
 After saving the configuration, restart Claude Desktop completely.
 
-#### Step 3: Test the Integration
+#### Step 4: Test the Integration
 
 Once restarted, you can test the integration by asking Claude questions like:
 
@@ -139,31 +228,15 @@ Once restarted, you can test the integration by asking Claude questions like:
 - "Show nodes with with low disk space"
 - "Check the status of job 123"
 
-#### Step 4: Verify Connection
+#### Step 5: Verify Connection
 
 You should see Claude respond with information about your Ansible templates and be able to launch jobs. If there are issues, check:
 
-1. Claude Desktop logs for error messages
-2. Your AAP credentials and permissions
-3. Network connectivity to your AAP instance
-
-### Alternative: Using Environment File
-
-Instead of embedding credentials in the Claude Desktop config, you can create a `.env` file:
-
-```json
-{
-  "mcpServers": {
-    "ansible-aap": {
-      "command": "uv",
-      "args": ["run", "python", "server.py"],
-      "cwd": "<PATH TO THE PROJECT>"
-    }
-  }
-}
-```
-
-Then create a `.env` file in your project directory with the AAP configuration.
+1. The MCP server is running (`python server.py`)
+2. Claude Desktop logs for error messages
+3. Your AAP credentials in the `.env` file
+4. Network connectivity to your AAP instance
+5. The server is accessible at `http://127.0.0.1:8000`
 
 ### Available Tools
 

@@ -1,0 +1,48 @@
+# Git files
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation
+*.md
+docs/
+MIGRATION_GUIDE.md
+CONTAINER_GUIDE.md
+QUICK_START.md
+
+# Tests and tools
+tools/
+unit_tests.py
+
+# Container files
+Containerfile
+.containerignore
+podman-compose.yml
+run-container.sh
+
+# OS files
+.DS_Store
+Thumbs.db
+
