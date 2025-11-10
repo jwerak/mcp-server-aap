@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mcp-server-aap-dev
+
+# Reference the base configuration
+resources:
+- ../../base
+
+# Dev-specific configuration
+namePrefix: dev-
+
+# Override ConfigMap values for dev environment
+configMapGenerator:
+- name: mcp-server-aap-config
+  behavior: merge
+  literals:
+  - aap-url=https://dev-aap-controller.example.com
+  - aap-project-id=1
+  - aap-verify-ssl=false
+  - aap-timeout=30
+  - aap-max-retries=3
+
+# Dev-specific labels
+labels:
+- pairs:
+    environment: dev
+
+# Dev-specific annotations
+commonAnnotations:
+  environment: development
+  managed-by: kustomize
+
+# Image configuration for dev
+images:
+- name: mcp-server-aap
+  newName: quay.io/your-org/mcp-server-aap
+  newTag: dev
+
+# Dev-specific patches
+patches:
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: mcp-server-aap
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - name: mcp-server
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+

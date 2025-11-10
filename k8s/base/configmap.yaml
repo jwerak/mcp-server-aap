@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-server-aap-config
+  labels:
+    app: mcp-server-aap
+    app.kubernetes.io/name: mcp-server-aap
+    app.kubernetes.io/component: server
+data:
+  # AAP Controller URL
+  aap-url: "https://your-aap-controller.example.com"
+
+  # AAP Project ID
+  aap-project-id: "1"
+
+  # SSL Verification (true/false)
+  aap-verify-ssl: "true"
+
+  # Request timeout in seconds
+  aap-timeout: "30"
+
+  # Maximum number of retries for API requests
+  aap-max-retries: "3"
+

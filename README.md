@@ -148,7 +148,8 @@ Use the convenience script to build and run the container:
 
 ```bash
 # Using Podman
-podman build -t mcp-server-aap:latest .
+podman build -t quay.io/jwerak/mcp-server-aap:latest .
+podman push quay.io/jwerak/mcp-server-aap:latest
 ```
 
 ##### Run the Container
@@ -163,7 +164,7 @@ podman run -d \
   -e AAP_TOKEN="your-access-token-here" \
   -e AAP_PROJECT_ID="your-project-id" \
   -e AAP_VERIFY_SSL="True" \
-  mcp-server-aap:latest
+  quay.io/jwerak/mcp-server-aap:latest
 ```
 
 **Option 2: Using .env file**
@@ -173,7 +174,7 @@ podman run -d \
   --name mcp-server-aap \
   -p 8000:8000 \
   --env-file .env \
-  mcp-server-aap:latest
+  quay.io/jwerak/mcp-server-aap:latest
 ```
 
 #### Access the Server
@@ -181,6 +182,61 @@ podman run -d \
 Once the container is running, the server will be accessible at:
 - `http://localhost:8000` (from host machine)
 - `http://127.0.0.1:8000/sse` (SSE endpoint for Claude Desktop)
+
+### Deploying to OpenShift
+
+For production deployments on OpenShift, this project includes complete Kubernetes manifests and Kustomize configurations.
+
+#### Quick Start
+
+```bash
+# Build and push container image
+podman build -t quay.io/your-org/mcp-server-aap:latest -f Containerfile .
+podman push quay.io/your-org/mcp-server-aap:latest
+
+# Create namespace and secret
+oc new-project mcp-server-aap-dev
+oc create secret generic dev-mcp-server-aap-secret \
+  --from-literal=aap-token='YOUR_AAP_TOKEN' \
+  -n mcp-server-aap-dev
+
+# Deploy using Kustomize
+oc apply -k k8s/overlays/dev
+
+# Get the HTTPS route
+oc get route -n mcp-server-aap-dev
+```
+
+#### Features
+
+- ✅ **HTTPS Route**: Automatic TLS termination with edge routing
+- ✅ **ConfigMaps & Secrets**: Separate storage for sensitive and non-sensitive config
+- ✅ **Kustomize**: Base configuration with dev/prod overlays
+- ✅ **Security**: Non-root containers, security contexts, health checks
+- ✅ **Scalability**: Resource limits, horizontal scaling support
+- ✅ **Multi-Environment**: Separate dev and prod configurations
+
+#### Documentation
+
+- **Quick Start**: See [DEPLOYMENT.md](DEPLOYMENT.md) for rapid deployment
+- **Comprehensive Guide**: See [k8s/README.md](k8s/README.md) for detailed instructions
+- **Summary**: See [k8s/SUMMARY.md](k8s/SUMMARY.md) for an overview of what's included
+
+#### Directory Structure
+
+```
+k8s/
+├── base/                   # Base Kubernetes resources
+│   ├── deployment.yaml    # App deployment with ConfigMap/Secret
+│   ├── service.yaml       # ClusterIP service
+│   ├── route.yaml         # OpenShift HTTPS route
+│   ├── configmap.yaml     # Non-sensitive configuration
+│   ├── secret.yaml        # AAP token (template)
+│   └── kustomization.yaml
+└── overlays/
+    ├── dev/               # Development environment
+    └── prod/              # Production environment
+```
 
 ### Claude Desktop Integration
 

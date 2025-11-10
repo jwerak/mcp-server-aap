@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mcp-server-aap
+
+labels:
+- pairs:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: mcp-server-aap
+
+resources:
+- deployment.yaml
+- service.yaml
+- route.yaml
+- configmap.yaml
+# - secret.yaml # Create secret manually
+
+# Optional: Add common annotations
+commonAnnotations:
+  description: "MCP Server for Ansible Automation Platform"
+
+# Image configuration
+images:
+- name: mcp-server-aap
+  newName: quay.io/jwerak/mcp-server-aap
+  newTag: latest
+

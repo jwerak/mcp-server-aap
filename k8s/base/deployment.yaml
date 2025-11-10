@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server-aap
+  labels:
+    app: mcp-server-aap
+    app.kubernetes.io/name: mcp-server-aap
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server-aap
+  template:
+    metadata:
+      labels:
+        app: mcp-server-aap
+        app.kubernetes.io/name: mcp-server-aap
+        app.kubernetes.io/component: server
+    spec:
+      containers:
+      - name: mcp-server
+        image: quay.io/jwerak/mcp-server-aap:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        # Sensitive configuration from Secret
+        - name: AAP_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: mcp-server-aap-secret
+              key: aap-token
+        # Non-sensitive configuration from ConfigMap
+        - name: AAP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-server-aap-config
+              key: aap-url
+        - name: AAP_PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-server-aap-config
+              key: aap-project-id
+        - name: AAP_VERIFY_SSL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-server-aap-config
+              key: aap-verify-ssl
+        - name: AAP_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-server-aap-config
+              key: aap-timeout
+        - name: AAP_MAX_RETRIES
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-server-aap-config
+              key: aap-max-retries
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      restartPolicy: Always
+

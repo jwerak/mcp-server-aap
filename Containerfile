@@ -43,9 +43,9 @@ ENV AAP_URL="" \
     AAP_TIMEOUT="30" \
     AAP_MAX_RETRIES="3"
 
-# Health check
+# Health check - verify port is listening
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)" || exit 1
+    CMD python3 -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('localhost', 8000)); s.close()" || exit 1
 
 # Run the server
 CMD ["python3", "server.py"]
