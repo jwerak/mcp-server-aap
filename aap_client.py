@@ -15,6 +15,7 @@ load_dotenv()
 
 class AAPConfig(BaseModel):
     """Configuration for AAP connection"""
+
     url: str
     token: str
     project_id: str
@@ -25,6 +26,7 @@ class AAPConfig(BaseModel):
 
 class JobTemplate(BaseModel):
     """Job Template model"""
+
     id: int
     name: str
     description: str
@@ -38,6 +40,7 @@ class JobTemplate(BaseModel):
 
 class JobLaunch(BaseModel):
     """Job Launch response model"""
+
     job: int
     ignored_fields: Dict[str, Any] = {}
     id: int
@@ -47,9 +50,27 @@ class JobLaunch(BaseModel):
     summary_fields: Dict[str, Any] = {}
 
 
+class Host(BaseModel):
+    """Host model"""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    enabled: bool = True
+
+
+class Inventory(BaseModel):
+    """Inventory model"""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    hosts: List[Host] = []
+
+
 class AAPClient:
     """Client for interacting with Ansible Automation Platform API"""
-    
+
     def __init__(self, config: Optional[AAPConfig] = None):
         """Initialize AAP client with configuration"""
         if config:
@@ -62,34 +83,38 @@ class AAPClient:
                 project_id=os.getenv("AAP_PROJECT_ID", ""),
                 verify_ssl=os.getenv("AAP_VERIFY_SSL", "True").lower() == "true",
                 timeout=int(os.getenv("AAP_TIMEOUT", "30")),
-                max_retries=int(os.getenv("AAP_MAX_RETRIES", "3"))
+                max_retries=int(os.getenv("AAP_MAX_RETRIES", "3")),
             )
-        
+
         # Validate configuration
         if not self.config.url or not self.config.token:
             raise ValueError("AAP_URL and AAP_TOKEN must be configured")
-        
+
         # Setup HTTP client with flexible auth
-        headers = {"Content-Type": "application/json",
-                   "Authorization": f"Bearer {self.config.token}"}
-        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.config.token}",
+        }
+
         self.client = httpx.AsyncClient(
             base_url=self.config.url,
             headers=headers,
             verify=self.config.verify_ssl,
-            timeout=self.config.timeout
+            timeout=self.config.timeout,
         )
-    
+
     async def __aenter__(self):
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.aclose()
-    
-    async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+
+    async def _make_request(
+        self, method: str, endpoint: str, **kwargs
+    ) -> Dict[str, Any]:
         """Make HTTP request with retry logic"""
         url = f"/api/controller/v2/{endpoint.lstrip('/')}"
-        
+
         for attempt in range(self.config.max_retries):
             try:
                 response = await self.client.request(method, url, **kwargs)
@@ -97,17 +122,19 @@ class AAPClient:
                 return response.json()
             except httpx.HTTPStatusError as e:
                 if attempt == self.config.max_retries - 1:
-                    raise Exception(f"AAP API request failed: {e.response.status_code} - {e.response.text}")
-                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    raise Exception(
+                        f"AAP API request failed: {e.response.status_code} - {e.response.text}"
+                    )
+                await asyncio.sleep(2**attempt)  # Exponential backoff
             except Exception as e:
                 if attempt == self.config.max_retries - 1:
                     raise Exception(f"AAP API request failed: {str(e)}")
-                await asyncio.sleep(2 ** attempt)
-    
+                await asyncio.sleep(2**attempt)
+
     async def _make_text_request(self, method: str, endpoint: str, **kwargs) -> str:
         """Make HTTP request expecting text response with retry logic"""
         url = f"/api/controller/v2/{endpoint.lstrip('/')}"
-        
+
         for attempt in range(self.config.max_retries):
             try:
                 response = await self.client.request(method, url, **kwargs)
@@ -122,67 +149,172 @@ class AAPClient:
                     except:
                         error_text += " - Unable to read response text"
                     raise Exception(f"AAP API request failed: {error_text}")
-                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                await asyncio.sleep(2**attempt)  # Exponential backoff
             except Exception as e:
                 if attempt == self.config.max_retries - 1:
                     raise Exception(f"AAP API request failed: {str(e)}")
-                await asyncio.sleep(2 ** attempt)
-        
+                await asyncio.sleep(2**attempt)
+
         # This should never be reached due to the exceptions above, but needed for type checking
         return ""
-    
-    async def get_job_templates(self, project_id: Optional[str] = None) -> List[JobTemplate]:
+
+    async def get_job_templates(
+        self, project_id: Optional[str] = None
+    ) -> List[JobTemplate]:
         """Get job templates from the configured project"""
-        if not project_id:
-            project_id = self.config.project_id
-        
-        params = {"project": project_id, "page_size": 200}
+        # if not project_id:
+        #     project_id = self.config.project_id
+
+        params = {"page_size": 200}
+        if project_id:
+            params["project"] = project_id
         response = await self._make_request("GET", "job_templates/", params=params)
-        
+
         templates = []
         for template_data in response.get("results", []):
             # Handle empty string extra_vars from API
             if "extra_vars" in template_data and template_data["extra_vars"] == "":
                 template_data["extra_vars"] = None
             templates.append(JobTemplate(**template_data))
-        
+
         return templates
-    
+
     async def get_job_template(self, template_id: int) -> JobTemplate:
         """Get a specific job template by ID"""
         response = await self._make_request("GET", f"job_templates/{template_id}/")
         return JobTemplate(**response)
-    
-    async def launch_job_template(self, template_id: int, extra_vars: Optional[Dict[str, Any]] = None,
-                                 inventory: Optional[int] = None, credentials: Optional[List[int]] = None) -> JobLaunch:
+
+    async def launch_job_template(
+        self,
+        template_id: int,
+        extra_vars: Optional[Dict[str, Any]] = None,
+        inventory: Optional[int] = None,
+        credentials: Optional[List[int]] = None,
+    ) -> JobLaunch:
         """Launch a job template with optional parameters"""
         payload = {}
-        
+
         if extra_vars:
             payload["extra_vars"] = extra_vars
-        
+
         if inventory:
             payload["inventory"] = inventory
-        
+
         if credentials:
             payload["credentials"] = credentials
-        
-        response = await self._make_request("POST", f"job_templates/{template_id}/launch/", json=payload)
+
+        response = await self._make_request(
+            "POST", f"job_templates/{template_id}/launch/", json=payload
+        )
         return JobLaunch(**response)
-    
+
     async def get_job_status(self, job_id: int) -> Dict[str, Any]:
         """Get job status and details"""
         response = await self._make_request("GET", f"jobs/{job_id}/")
         return response
-    
+
     async def get_job_stdout(self, job_id: int) -> str:
         """Get job stdout/logs"""
         return await self._make_text_request("GET", f"jobs/{job_id}/stdout/?format=txt")
-    
+
     async def test_connection(self) -> bool:
         """Test AAP connection and authentication"""
         try:
             await self._make_request("GET", "me/")
             return True
         except Exception:
-            return False 
+            return False
+
+    async def get_inventories(
+        self, organization_id: Optional[str] = None
+    ) -> List[Inventory]:
+        """Get inventories with their hosts from the configured organization"""
+        params = {"page_size": 200}
+        if organization_id:
+            params["organization"] = organization_id
+
+        response = await self._make_request("GET", "inventories/", params=params)
+
+        inventories = []
+        for inventory_data in response.get("results", []):
+            # Get hosts for this inventory
+            hosts_response = await self._make_request(
+                "GET",
+                f"inventories/{inventory_data['id']}/hosts/",
+                params={"page_size": 200},
+            )
+
+            hosts = []
+            for host_data in hosts_response.get("results", []):
+                hosts.append(
+                    Host(
+                        id=host_data["id"],
+                        name=host_data["name"],
+                        description=host_data.get("description"),
+                        enabled=host_data.get("enabled", True),
+                    )
+                )
+
+            inventories.append(
+                Inventory(
+                    id=inventory_data["id"],
+                    name=inventory_data["name"],
+                    description=inventory_data.get("description"),
+                    hosts=hosts,
+                )
+            )
+
+        return inventories
+
+
+def format_inventories(inventories: List[Inventory]) -> str:
+    """Format inventories with hosts for display"""
+    import json
+
+    if not inventories:
+        return "No inventories found in the specific organization."
+
+    # Create detailed inventory information
+    inventory_details = []
+    inventory_list = []
+
+    for i, inventory in enumerate(inventories, 1):
+        # Detailed description for readable format
+        inventory_detail = f"**{i}. {inventory.name}** (ID: {inventory.id})\n"
+        inventory_detail += (
+            f"   📋 Description: {inventory.description or 'No description provided'}\n"
+        )
+
+        # Also maintain JSON structure for programmatic use
+        inventory_info = {
+            "id": inventory.id,
+            "name": inventory.name,
+            "description": inventory.description,
+            "hosts": [],
+        }
+
+        for j, host in enumerate(inventory.hosts, 1):
+            inventory_detail += f"   - Host {j}: {host.name}\n"
+            inventory_detail += f"              Description : {host.description}\n"
+            inventory_detail += (
+                f"              Enabled     : {'Yes' if host.enabled else 'No'}\n"
+            )
+
+            host_detail = {
+                "name": host.name,
+                "description": host.description,
+                "enabled": host.enabled,
+            }
+            inventory_info["hosts"].append(host_detail)
+
+        inventory_details.append(inventory_detail)
+        inventory_list.append(inventory_info)
+
+    # Create comprehensive response
+    response_text = f"Found {len(inventories)} inventor{'ies' if len(inventories) != 1 else 'y'}:\n\n"
+    response_text += "\n".join(inventory_details)
+    response_text += "\n\n---\n\nJSON Data:\n```json\n"
+    response_text += json.dumps(inventory_list, indent=2)
+    response_text += "\n```"
+
+    return response_text

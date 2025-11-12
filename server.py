@@ -8,7 +8,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 from fastmcp import FastMCP
-from aap_client import AAPClient, JobTemplate, JobLaunch
+from aap_client import AAPClient, JobTemplate, JobLaunch, format_inventories
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -171,6 +171,18 @@ async def test_aap_connection() -> str:
         return f"Error: {str(e)}"
 
 
+@mcp.tool()
+async def get_host_inventories(organization_id: Optional[str] = None) -> str:
+    """Get the host inventories from the configured AAP organization with detailed host information"""
+    try:
+        async with AAPClient() as client:
+            inventories = await client.get_inventories(organization_id)
+            return format_inventories(inventories)
+    except Exception as e:
+        logger.error(f"Error in get_host_inventories: {str(e)}")
+        return f"Error: {str(e)}"
+
+
 if __name__ == "__main__":
-    # Run the FastMCP server with HTTP transport
-    mcp.run(transport="sse", host="0.0.0.0", port=8000)
+    # Run the FastMCP server with Streamable HTTP transport (SSE is deprecated)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)

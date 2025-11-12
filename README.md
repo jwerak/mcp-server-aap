@@ -181,7 +181,7 @@ podman run -d \
 
 Once the container is running, the server will be accessible at:
 - `http://localhost:8000` (from host machine)
-- `http://127.0.0.1:8000/sse` (SSE endpoint for Claude Desktop)
+- `http://127.0.0.1:8000` (Streamable HTTP endpoint for MCP clients)
 
 ### Deploying to OpenShift
 
@@ -257,13 +257,13 @@ The server will start on `http://127.0.0.1:8000`.
    - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
    - **Linux**: `~/.config/claude/claude_desktop_config.json`
 
-2. Edit the configuration file and add the MCP server using HTTP transport:
+2. Edit the configuration file and add the MCP server using Streamable HTTP transport:
 
 ```json
 {
   "mcpServers": {
     "ansible-aap": {
-      "url": "http://127.0.0.1:8000/sse"
+      "url": "http://127.0.0.1:8000"
     }
   }
 }

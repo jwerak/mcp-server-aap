@@ -154,10 +154,10 @@ The application will be accessible via HTTPS at the route URL.
 
 ```bash
 # Edit the configmap
-oc edit configmap mcp-server-aap-config -n mcp-server-aap-dev
+oc edit configmap mcp-server-aap-config -n mcp-server-aap-prod
 
 # Restart the deployment to pick up changes
-oc rollout restart deployment/dev-mcp-server-aap -n mcp-server-aap-dev
+oc rollout restart deployment/mcp-server-aap -n mcp-server-aap-prod
 ```
 
 ### Update Secret
@@ -166,10 +166,10 @@ oc rollout restart deployment/dev-mcp-server-aap -n mcp-server-aap-dev
 # Update the secret
 oc create secret generic mcp-server-aap-secret \
   --from-literal=aap-token='new-token-here' \
-  --dry-run=client -o yaml | oc apply -f - -n mcp-server-aap-dev
+  --dry-run=client -o yaml | oc apply -f - -n mcp-server-aap-prod
 
 # Restart the deployment to pick up changes
-oc rollout restart deployment/dev-mcp-server-aap -n mcp-server-aap-dev
+oc rollout restart deployment/mcp-server-aap -n mcp-server-aap-prod
 ```
 
 ## Monitoring
@@ -178,24 +178,16 @@ oc rollout restart deployment/dev-mcp-server-aap -n mcp-server-aap-dev
 
 ```bash
 # View logs
-oc logs -f deployment/dev-mcp-server-aap -n mcp-server-aap-dev
+oc logs -f deployment/mcp-server-aap -n mcp-server-aap-prod
 
 # View logs from all pods
-oc logs -l app=mcp-server-aap -n mcp-server-aap-dev --tail=100 -f
+oc logs -l app=mcp-server-aap -n mcp-server-aap-prod --tail=100 -f
 ```
 
-### Check Pod Status
+### Connection details
 
 ```bash
-# Get pod status
-oc get pods -n mcp-server-aap-dev
-
-# Describe pod
-oc describe pod <pod-name> -n mcp-server-aap-dev
-
-# Get events
-oc get events -n mcp-server-aap-dev --sort-by='.lastTimestamp'
-```
+oc get route/mcp-server-aap -n mcp-server-aap-prod -o jsonpath='{.spec.host}'
 
 ### Health Checks
 

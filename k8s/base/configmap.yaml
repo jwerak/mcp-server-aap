@@ -21,4 +21,3 @@ data:
 
   # Maximum number of retries for API requests
   aap-max-retries: "3"
-
