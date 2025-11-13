@@ -8,7 +8,14 @@ import json
 import logging
 from typing import Any, Dict, Optional
 from fastmcp import FastMCP
-from aap_client import AAPClient, JobTemplate, JobLaunch, format_inventories
+from aap_client import (
+    AAPClient,
+    JobTemplate,
+    JobLaunch,
+    format_inventories,
+    Organization,
+    Project,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +26,7 @@ mcp = FastMCP("ansible-aap-server")
 
 
 @mcp.tool()
-async def get_job_templates(project_id: Optional[str] = None) -> str:
+async def get_job_templates(project_id: Optional[int] = None) -> str:
     """Get available job templates from the configured AAP project with detailed descriptions and metadata"""
     try:
         async with AAPClient() as client:
@@ -83,8 +90,17 @@ async def launch_job_template(
     extra_vars: Optional[Dict[str, Any]] = None,
     inventory: Optional[int] = None,
     credentials: Optional[list[int]] = None,
+    limit: Optional[str] = None,
 ) -> str:
-    """Launch an Ansible job template with optional parameters"""
+    """Launch an Ansible job template with optional parameters
+
+    Args:
+        template_id: The ID of the job template to launch
+        extra_vars: Dictionary of extra variables to pass to the playbook
+        inventory: ID of the inventory to use for this job
+        credentials: List of credential IDs to use for this job
+        limit: Further limit selected hosts to an additional pattern (e.g., 'webservers' or 'host1,host2')
+    """
     try:
         async with AAPClient() as client:
             launch_result = await client.launch_job_template(
@@ -92,6 +108,7 @@ async def launch_job_template(
                 extra_vars=extra_vars,
                 inventory=inventory,
                 credentials=credentials,
+                limit=limit,
             )
 
             return (
@@ -172,7 +189,7 @@ async def test_aap_connection() -> str:
 
 
 @mcp.tool()
-async def get_host_inventories(organization_id: Optional[str] = None) -> str:
+async def get_host_inventories(organization_id: Optional[int] = None) -> str:
     """Get the host inventories from the configured AAP organization with detailed host information"""
     try:
         async with AAPClient() as client:
@@ -180,6 +197,104 @@ async def get_host_inventories(organization_id: Optional[str] = None) -> str:
             return format_inventories(inventories)
     except Exception as e:
         logger.error(f"Error in get_host_inventories: {str(e)}")
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def get_organizations() -> str:
+    """Get all organizations from Ansible Automation Platform"""
+    try:
+        async with AAPClient() as client:
+            organizations = await client.get_organizations()
+
+            if not organizations:
+                return "No organizations found."
+
+            # Create detailed organization information
+            org_details = []
+            org_list = []
+
+            for i, org in enumerate(organizations, 1):
+                # Detailed description for readable format
+                org_detail = f"**{i}. {org.name}** (ID: {org.id})\n"
+                org_detail += f"   📋 Description: {org.description or 'No description provided'}\n"
+                org_details.append(org_detail)
+
+                # Also maintain JSON structure for programmatic use
+                org_info = {
+                    "id": org.id,
+                    "name": org.name,
+                    "description": org.description,
+                }
+                org_list.append(org_info)
+
+            # Create comprehensive response
+            response_text = f"Found {len(organizations)} organization{'s' if len(organizations) != 1 else ''}:\n\n"
+            response_text += "\n".join(org_details)
+            response_text += "\n\n---\n\nJSON Data:\n```json\n"
+            response_text += json.dumps(org_list, indent=2)
+            response_text += "\n```"
+
+            return response_text
+
+    except Exception as e:
+        logger.error(f"Error in get_organizations: {str(e)}")
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def get_projects(organization_id: Optional[int] = None) -> str:
+    """Get projects from Ansible Automation Platform, optionally filtered by organization ID"""
+    try:
+        async with AAPClient() as client:
+            projects = await client.get_projects(organization_id)
+
+            if not projects:
+                return "No projects found."
+
+            # Create detailed project information
+            project_details = []
+            project_list = []
+
+            for i, project in enumerate(projects, 1):
+                # Detailed description for readable format
+                project_detail = f"**{i}. {project.name}** (ID: {project.id})\n"
+                project_detail += f"   📋 Description: {project.description or 'No description provided'}\n"
+                if project.organization:
+                    project_detail += f"   🏢 Organization ID: {project.organization}\n"
+                if project.scm_type:
+                    project_detail += f"   🔧 SCM Type: {project.scm_type}\n"
+                if project.scm_url:
+                    project_detail += f"   🔗 SCM URL: {project.scm_url}\n"
+                if project.scm_branch:
+                    project_detail += f"   🌿 SCM Branch: {project.scm_branch}\n"
+                project_details.append(project_detail)
+
+                # Also maintain JSON structure for programmatic use
+                project_info = {
+                    "id": project.id,
+                    "name": project.name,
+                    "description": project.description,
+                    "organization": project.organization,
+                    "scm_type": project.scm_type,
+                    "scm_url": project.scm_url,
+                    "scm_branch": project.scm_branch,
+                }
+                project_list.append(project_info)
+
+            # Create comprehensive response
+            response_text = (
+                f"Found {len(projects)} project{'s' if len(projects) != 1 else ''}:\n\n"
+            )
+            response_text += "\n".join(project_details)
+            response_text += "\n\n---\n\nJSON Data:\n```json\n"
+            response_text += json.dumps(project_list, indent=2)
+            response_text += "\n```"
+
+            return response_text
+
+    except Exception as e:
+        logger.error(f"Error in get_projects: {str(e)}")
         return f"Error: {str(e)}"
 
 

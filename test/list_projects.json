@@ -1,0 +1,11 @@
+{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "id": "test-1",
+    "params": {
+        "name": "get_projects",
+        "arguments": {
+            "organization_id": 2
+        }
+    }
+}

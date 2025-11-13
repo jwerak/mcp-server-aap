@@ -68,6 +68,26 @@ class Inventory(BaseModel):
     hosts: List[Host] = []
 
 
+class Organization(BaseModel):
+    """Organization model"""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+
+
+class Project(BaseModel):
+    """Project model"""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    organization: Optional[int] = None
+    scm_type: Optional[str] = None
+    scm_url: Optional[str] = None
+    scm_branch: Optional[str] = None
+
+
 class AAPClient:
     """Client for interacting with Ansible Automation Platform API"""
 
@@ -159,7 +179,7 @@ class AAPClient:
         return ""
 
     async def get_job_templates(
-        self, project_id: Optional[str] = None
+        self, project_id: Optional[int] = None
     ) -> List[JobTemplate]:
         """Get job templates from the configured project"""
         # if not project_id:
@@ -190,6 +210,7 @@ class AAPClient:
         extra_vars: Optional[Dict[str, Any]] = None,
         inventory: Optional[int] = None,
         credentials: Optional[List[int]] = None,
+        limit: Optional[str] = None,
     ) -> JobLaunch:
         """Launch a job template with optional parameters"""
         payload = {}
@@ -202,6 +223,9 @@ class AAPClient:
 
         if credentials:
             payload["credentials"] = credentials
+
+        if limit:
+            payload["limit"] = limit
 
         response = await self._make_request(
             "POST", f"job_templates/{template_id}/launch/", json=payload
@@ -226,7 +250,7 @@ class AAPClient:
             return False
 
     async def get_inventories(
-        self, organization_id: Optional[str] = None
+        self, organization_id: Optional[int] = None
     ) -> List[Inventory]:
         """Get inventories with their hosts from the configured organization"""
         params = {"page_size": 200}
@@ -265,6 +289,49 @@ class AAPClient:
             )
 
         return inventories
+
+    async def get_organizations(self) -> List[Organization]:
+        """Get all organizations"""
+        params = {"page_size": 200}
+        response = await self._make_request("GET", "organizations/", params=params)
+
+        organizations = []
+        for org_data in response.get("results", []):
+            organizations.append(
+                Organization(
+                    id=org_data["id"],
+                    name=org_data["name"],
+                    description=org_data.get("description"),
+                )
+            )
+
+        return organizations
+
+    async def get_projects(
+        self, organization_id: Optional[int] = None
+    ) -> List[Project]:
+        """Get projects, optionally filtered by organization"""
+        params = {"page_size": 200}
+        if organization_id:
+            params["organization"] = organization_id
+
+        response = await self._make_request("GET", "projects/", params=params)
+
+        projects = []
+        for project_data in response.get("results", []):
+            projects.append(
+                Project(
+                    id=project_data["id"],
+                    name=project_data["name"],
+                    description=project_data.get("description"),
+                    organization=project_data.get("organization"),
+                    scm_type=project_data.get("scm_type"),
+                    scm_url=project_data.get("scm_url"),
+                    scm_branch=project_data.get("scm_branch"),
+                )
+            )
+
+        return projects
 
 
 def format_inventories(inventories: List[Inventory]) -> str:

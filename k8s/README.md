@@ -188,30 +188,13 @@ oc logs -l app=mcp-server-aap -n mcp-server-aap-prod --tail=100 -f
 
 ```bash
 oc get route/mcp-server-aap -n mcp-server-aap-prod -o jsonpath='{.spec.host}'
+```
 
 ### Health Checks
 
 The deployment includes liveness and readiness probes:
 - Liveness probe: `/health` endpoint
 - Readiness probe: `/health` endpoint
-
-## Scaling
-
-### Manual Scaling
-
-```bash
-# Scale the deployment
-oc scale deployment/dev-mcp-server-aap --replicas=3 -n mcp-server-aap-dev
-```
-
-### Horizontal Pod Autoscaler (HPA)
-
-```bash
-# Create HPA
-oc autoscale deployment/dev-mcp-server-aap \
-  --min=1 --max=5 --cpu-percent=80 \
-  -n mcp-server-aap-dev
-```
 
 ## Troubleshooting
 

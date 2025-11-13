@@ -296,6 +296,58 @@ You should see Claude respond with information about your Ansible templates and 
 
 ### Available Tools
 
+#### Testing the MCP Server
+
+The MCP server uses the Model Context Protocol over HTTP which requires session management. You cannot simply send a single curl request - you need to:
+1. Initialize a session with an `initialize` request
+2. Receive a session ID from the server
+3. Include the session ID in subsequent tool calls
+
+**Recommended: Use the test script**
+
+```bash
+# Test with default parameters (get_projects with organization_id=2)
+python3 tools/test_mcp_http.py --url https://mcp-server-aap.apps.cluster.example.com
+
+# Test a specific tool with custom arguments
+python3 tools/test_mcp_http.py \
+    --url https://mcp-server-aap.apps.cluster.example.com \
+    --tool get_projects \
+    --args '{"organization_id": 2}'
+
+# Test another tool
+python3 tools/test_mcp_http.py \
+    --url https://mcp-server-aap.apps.cluster.example.com \
+    --tool get_organizations \
+    --args '{}'
+```
+
+**Advanced: Manual curl testing**
+
+If you need to test with curl directly, you must first initialize a session. Note that the server responds with Server-Sent Events (SSE) format:
+
+```bash
+# Step 1: Initialize session and capture session ID
+SESSION_ID=$(curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json,text/event-stream" \
+  https://mcp-server-aap.apps.cluster.example.com/mcp \
+  -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' \
+  -D - | grep -i "mcp-session-id:" | cut -d' ' -f2 | tr -d '\r')
+
+echo "Session ID: $SESSION_ID"
+
+# Step 2: Call tool with session ID (response will be in SSE format)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json,text/event-stream" \
+  -H "mcp-session-id: $SESSION_ID" \
+  https://mcp-server-aap.apps.cluster.example.com/mcp \
+  -d '{"jsonrpc":"2.0","method":"tools/call","id":2,"params":{"name":"get_projects","arguments":{"organization_id":2}}}'
+```
+
+**Note**: The responses are in Server-Sent Events (SSE) format starting with `data:` lines. The Python test script handles this parsing automatically.
+
 The server provides the following tools:
 
 #### 1. `get_job_templates`

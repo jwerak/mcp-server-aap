@@ -1,0 +1,17 @@
+{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "id": "test-2",
+    "params": {
+        "name": "launch_job_template",
+        "arguments": {
+            "template_id": 10,
+            "extra_vars": {
+                "target_host": "web-server-01",
+                "service_name": "nginx",
+                "restart_service": true
+            },
+            "inventory": 2
+        }
+    }
+}
