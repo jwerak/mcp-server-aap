@@ -12,7 +12,7 @@ This guide provides quick commands to deploy the MCP Server for Ansible Automati
 
 ```bash
 # 1. Build and push container image
-podman build -t quay.io/your-org/mcp-server-aap:dev -f Containerfile .
+podman build -t quay.io/your-org/mcp-server-aap:dev .
 podman push quay.io/your-org/mcp-server-aap:dev
 
 # 2. Update image name in kustomization (if different from quay.io/your-org/mcp-server-aap)

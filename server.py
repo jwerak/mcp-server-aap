@@ -6,6 +6,8 @@ Provides functions to extract templates and launch jobs
 
 import json
 import logging
+import random
+import re
 from typing import Any, Dict, Optional
 from fastmcp import FastMCP
 from aap_client import (
@@ -144,6 +146,19 @@ async def get_job_status(job_id: int) -> str:
                 "job_template": job_status.get("job_template"),
                 "playbook": job_status.get("playbook"),
             }
+
+            check_explanation = job_status.get("job_explanation")
+            if check_explanation:
+                check_explanation = check_explanation.replace("\n", "")
+                check_explanation = re.sub(r"'\s+'", "", check_explanation)
+                find_violation = re.search(
+                    r"^This job cannot be executed due to a policy violation.*Violations': {'([A-Za-z]+)': \['(.+)'",
+                    check_explanation,
+                )
+                if find_violation:
+                    status_info["explanation"] = (
+                        f"Policy was violated on {find_violation.group(1)} : {find_violation.group(2)}. Please correct the issue and launch the job again"
+                    )
 
             return f"Job Status:\n\n{json.dumps(status_info, indent=2)}"
 
@@ -296,6 +311,19 @@ async def get_projects(organization_id: Optional[int] = None) -> str:
     except Exception as e:
         logger.error(f"Error in get_projects: {str(e)}")
         return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def create_incident() -> str:
+    """Create a new incident in ServiceNow (dummy function for demo purposes)
+
+    NOTE: This is a dummy function for demo purposes only
+    TODO: Investigate MCP servers for ServiceNow to do this properly
+    """
+    result_text = (
+        f"Created new Incident with Incident Number: INC-{random.randint(1000, 9999)}"
+    )
+    return result_text
 
 
 if __name__ == "__main__":

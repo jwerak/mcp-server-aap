@@ -122,29 +122,7 @@ The server will start and listen for MCP protocol messages on HTTP using Server-
 
 You can run the MCP server in a container using Podman or Docker.
 
-#### Quick Start (Recommended)
-
-Use the convenience script to build and run the container:
-
-```bash
-# Build and start the container
-./run-container.sh start
-
-# View logs
-./run-container.sh logs
-
-# Check status
-./run-container.sh status
-
-# Stop the container
-./run-container.sh stop
-```
-
-**Note:** Make sure your `.env` file is configured before running the container.
-
-#### Manual Container Commands
-
-##### Build the Container Image
+#### Build the Container Image
 
 ```bash
 # Using Podman
